@@ -370,6 +370,9 @@ std::vector<llvm::Value*> VectorSupportLibrary::ComputeHorizontalSums(
 std::vector<llvm::Value*>
 VectorSupportLibrary::ComputeAvxOptimizedHorizontalSums(
     std::vector<llvm::Value*> vectors, llvm::Value* init_values) {
+  // vectors are N llvm vector values, each with N elements.
+  int64 lane_width = vectors.size();
+
   while (vectors.size() != 2) {
     std::vector<llvm::Value*> new_vectors;
     for (int i = 0; i < vectors.size(); i += 2) {
@@ -390,10 +393,14 @@ VectorSupportLibrary::ComputeAvxOptimizedHorizontalSums(
     high = AddInternal(ExtractHighHalf(init_values), high);
   }
 
+  // `low` has the first `lane_width / 2` horizontal reductions, and `high` has
+  // the next `lane_width / 2` horizontal reductions.
+
   std::vector<llvm::Value*> results;
-  for (int i = 0; i < 8; i++) {
+  for (int i = 0; i < lane_width; i++) {
     llvm::Value* scalar_result = ir_builder()->CreateExtractElement(
-        i < 4 ? low : high, ir_builder()->getInt32(i % 4), name());
+        i < (lane_width / 2) ? low : high,
+        ir_builder()->getInt32(i % (lane_width / 2)), name());
     results.push_back(scalar_result);
   }
 
@@ -420,5 +427,27 @@ llvm::Value* LlvmVariable::Get() const {
 void LlvmVariable::Set(llvm::Value* new_value) {
   ir_builder_->CreateStore(new_value, alloca_);
 }
+
+TileVariable::TileVariable(VectorSupportLibrary* vector_support,
+                           std::vector<llvm::Value*> initial_value) {
+  for (llvm::Value* initial_vector_value : initial_value) {
+    storage_.emplace_back(vector_support, initial_vector_value);
+  }
+}
+
+std::vector<llvm::Value*> TileVariable::Get() const {
+  std::vector<llvm::Value*> result;
+  c_transform(storage_, std::back_inserter(result),
+              [&](VectorVariable vect_var) { return vect_var.Get(); });
+  return result;
+}
+
+void TileVariable::Set(tensorflow::gtl::ArraySlice<llvm::Value*> value) {
+  CHECK_EQ(value.size(), storage_.size());
+  for (int64 i = 0, e = value.size(); i < e; i++) {
+    storage_[i].Set(value[i]);
+  }
+}
+
 }  // namespace cpu
 }  // namespace xla
