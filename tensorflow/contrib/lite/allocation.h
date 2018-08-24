@@ -26,6 +26,8 @@ limitations under the License.
 
 namespace tflite {
 
+using std::string;
+
 // A memory allocation handle. This could be a mmap or shared memory.
 class Allocation {
  public:
@@ -50,6 +52,8 @@ class MMAPAllocation : public Allocation {
   const void* base() const override;
   size_t bytes() const override;
   bool valid() const override;
+
+  static bool IsSupported();
 
  protected:
   // Data required for mmap.
