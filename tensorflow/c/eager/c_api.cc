@@ -375,6 +375,17 @@ int TFE_TensorHandleNumDims(TFE_TensorHandle* h, TF_Status* status) {
   return result;
 }
 
+int64_t TFE_TensorHandleNumElements(TFE_TensorHandle* h, TF_Status* status) {
+  if (h == nullptr || h->handle == nullptr) {
+    status->status = tensorflow::errors::InvalidArgument(
+        "The passed in handle is a nullptr");
+    return -1;
+  }
+  tensorflow::int64 result;
+  status->status = h->handle->NumElements(&result);
+  return result;
+}
+
 int64_t TFE_TensorHandleDim(TFE_TensorHandle* h, int dim_index,
                             TF_Status* status) {
   if (h == nullptr || h->handle == nullptr) {
@@ -397,6 +408,19 @@ const char* TFE_TensorHandleDeviceName(TFE_TensorHandle* h, TF_Status* status) {
   status->status = h->handle->OpDevice(&d);
   return (d == nullptr) ? "/job:localhost/replica:0/task:0/device:CPU:0"
                         : d->name().c_str();
+}
+
+TF_CAPI_EXPORT extern TFE_TensorHandle* TFE_TensorHandleCopySharingTensor(
+    TFE_TensorHandle* h, TF_Status* status) {
+  if (h == nullptr || h->handle == nullptr) {
+    status->status = tensorflow::errors::InvalidArgument(
+        "The passed in handle is a nullptr");
+    return nullptr;
+  }
+
+  h->handle->Ref();
+
+  return new TFE_TensorHandle(h->handle);
 }
 
 TF_Tensor* TFE_TensorHandleResolve(TFE_TensorHandle* h, TF_Status* status) {
@@ -552,6 +576,13 @@ void TFE_OpSetAttrFunction(TFE_Op* op, const char* attr_name,
   func->set_name(value->operation.Name());
   value->operation.Attrs().FillAttrValueMap(func->mutable_attr());
   op->operation.MutableAttrs()->Set(attr_name, attr_value);
+}
+
+void TFE_OpSetAttrTensor(TFE_Op* op, const char* attr_name, TF_Tensor* tensor,
+                         TF_Status* status) {
+  tensorflow::Tensor t;
+  status->status = TF_TensorToTensor(tensor, &t);
+  if (status->status.ok()) op->operation.MutableAttrs()->Set(attr_name, t);
 }
 
 void TFE_OpSetAttrStringList(TFE_Op* op, const char* attr_name,
