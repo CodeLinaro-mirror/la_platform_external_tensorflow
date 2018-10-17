@@ -98,7 +98,7 @@ class IrEmitter : public DfsHloVisitorWithDefault,
   StatusOr<llvm::Function*> EmitComputation(
       HloComputation* computation, const string& function_name_prefix,
       bool is_top_level_computation,
-      std::vector<const HloInstruction*>* instruction_order);
+      const std::vector<const HloInstruction*>* instruction_order);
 
   llvm::IRBuilder<>* b() { return &b_; }
 
@@ -162,6 +162,12 @@ class IrEmitter : public DfsHloVisitorWithDefault,
 
   Status Preprocess(HloInstruction* hlo) override;
   Status Postprocess(HloInstruction* hlo) override;
+
+  // A convenient helper for calling BufferAssignment::GetUniqueSlice.
+  BufferAllocation::Slice GetAllocationSlice(
+      const HloInstruction& hlo, const ShapeIndex& index = {}) const {
+    return assignment_.GetUniqueSlice(&hlo, index).ConsumeValueOrDie();
+  }
 
  private:
   // Private helper to initialize an IR function for the computation.
