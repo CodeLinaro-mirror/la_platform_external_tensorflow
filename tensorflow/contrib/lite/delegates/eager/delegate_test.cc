@@ -28,21 +28,21 @@ using ::testing::ElementsAre;
 class DelegateTest : public testing::EagerModelTest {
  public:
   DelegateTest() {
-    // The delegate needs to be constructed before the interpreter because the
-    // interpreter references data contained in the delegate.
-    delegate_.reset(new EagerDelegate());
+    delegate_ = EagerDelegate::Create();
     interpreter_.reset(new Interpreter(&error_reporter_));
   }
 
   ~DelegateTest() override {
     // The delegate needs to be destructed after the interpreter because the
     // interpreter references data contained in the delegate.
-    delete interpreter_.release();
-    delete delegate_.release();
+    interpreter_.reset();
+    delegate_.reset();
   }
 
   void ConfigureDelegate() {
-    CHECK(delegate_->Apply(interpreter_.get()) == kTfLiteOk);
+    ASSERT_EQ(interpreter_->ModifyGraphWithDelegate(
+                  delegate_.get(), /*allow_dynamic_tensors=*/true),
+              kTfLiteOk);
   }
 
  private:
@@ -72,6 +72,26 @@ TEST_F(DelegateTest, FullGraph) {
 
   ASSERT_THAT(GetShape(8), ElementsAre(2, 1));
   ASSERT_THAT(GetValues(8), ElementsAre(14.52f, 38.72f));
+  ASSERT_EQ(GetType(8), kTfLiteFloat32);
+}
+
+TEST_F(DelegateTest, NonFloatTypeInference) {
+  AddTensors(3, {0, 1}, {2}, kTfLiteInt32, {2});
+
+  AddTfOp(testing::kAdd, {0, 1}, {2});
+
+  ConfigureDelegate();
+
+  SetShape(0, {2, 2});
+  SetTypedValues<int>(0, {1, 2, 3, 4});
+  SetShape(1, {2, 2});
+  SetTypedValues<int>(1, {4, 3, 2, 1});
+
+  ASSERT_TRUE(Invoke());
+
+  ASSERT_THAT(GetShape(2), ElementsAre(2, 2));
+  ASSERT_THAT(GetTypedValues<int>(2), ElementsAre(5, 5, 5, 5));
+  ASSERT_EQ(GetType(2), kTfLiteInt32);
 }
 
 TEST_F(DelegateTest, MixedGraph) {
@@ -135,6 +155,34 @@ TEST_F(DelegateTest, OnlyTFLite) {
 
   ASSERT_THAT(GetShape(2), ElementsAre(2, 2, 1));
   ASSERT_THAT(GetValues(2), ElementsAre(1.1f, 4.4f, 9.9f, 17.6f));
+}
+
+TEST_F(DelegateTest, MultipleInvokeCalls) {
+  // Call Invoke() multiple times on the same model.
+  AddTensors(10, {0, 1}, {2}, kTfLiteFloat32, {3});
+  AddTfLiteMulOp({0, 1}, {2});
+
+  ConfigureDelegate();
+
+  SetShape(0, {2, 2, 1});
+  SetValues(0, {1.1f, 2.2f, 3.3f, 4.4f});
+  SetShape(1, {2, 2, 1});
+  SetValues(1, {1.0f, 2.0f, 3.0f, 4.0f});
+
+  ASSERT_TRUE(Invoke());
+
+  ASSERT_THAT(GetShape(2), ElementsAre(2, 2, 1));
+  ASSERT_THAT(GetValues(2), ElementsAre(1.1f, 4.4f, 9.9f, 17.6f));
+
+  SetShape(0, {2, 2, 1});
+  SetValues(1, {4.0f, 3.0f, 2.0f, 1.0f});
+  SetShape(1, {2, 2, 1});
+  SetValues(0, {4.4f, 3.3f, 2.2f, 1.1f});
+
+  ASSERT_TRUE(Invoke());
+
+  ASSERT_THAT(GetShape(2), ElementsAre(2, 2, 1));
+  ASSERT_THAT(GetValues(2), ElementsAre(17.6f, 9.9f, 4.4f, 1.1f));
 }
 
 TEST_F(DelegateTest, MultipleInterpretersSameDelegate) {

@@ -14,7 +14,8 @@
 # ==============================================================================
 """Control Flow Operations.
 
-See the @{$python/control_flow_ops} guide.
+See the [Control
+Flow](https://tensorflow.org/api_guides/python/control_flow_ops) guide.
 """
 # pylint: disable=g-bad-name
 from __future__ import absolute_import
@@ -60,7 +61,7 @@ from tensorflow.python.util import tf_should_use
 from tensorflow.python.util.tf_export import tf_export
 
 
-_ENABLE_COND_V2 = os.getenv("TF_ENABLE_COND_V2", "0") != "0"
+ENABLE_COND_V2 = os.getenv("TF_ENABLE_COND_V2", "0") != "0"
 
 
 # We override the 'tuple' for a control flow op, so we keep python's
@@ -609,9 +610,10 @@ def _EnforceShapeInvariant(merge_var, next_var):
           "less-specific shape." %
           (input_t.name, input_t.shape, n_shape))
   else:
-    if not isinstance(var, (ops.IndexedSlices, sparse_tensor.SparseTensor)):
-      raise TypeError("Type %s not supported" % type(var))
-    if isinstance(var, ops.IndexedSlices):
+    if not isinstance(merge_var,
+                      (ops.IndexedSlices, sparse_tensor.SparseTensor)):
+      raise TypeError("Type %s not supported" % type(merge_var))
+    if isinstance(merge_var, ops.IndexedSlices):
       m_values_shape = merge_var.values.get_shape()
       m_indices_shape = merge_var.indices.get_shape()
       m_shape_shape = tensor_shape.TensorShape(None)
@@ -1965,8 +1967,12 @@ def cond(pred,
   `true_fn` and `false_fn` both return lists of output tensors. `true_fn` and
   `false_fn` must have the same non-zero number and type of outputs.
 
-  Note that the conditional execution applies only to the operations defined in
-  `true_fn` and `false_fn`. Consider the following simple program:
+  **WARNING**: Any Tensors or Operations created outside of `true_fn` and
+  `false_fn` will be executed regardless of which branch is selected at runtime.
+
+  Although this behavior is consistent with the dataflow model of TensorFlow,
+  it has frequently surprised users who expected a lazier semantics.
+  Consider the following simple program:
 
   ```python
   z = tf.multiply(a, b)
@@ -1977,8 +1983,6 @@ def cond(pred,
   operation will not be executed. Since `z` is needed for at least one
   branch of the `cond`, the `tf.multiply` operation is always executed,
   unconditionally.
-  Although this behavior is consistent with the dataflow model of TensorFlow,
-  it has occasionally surprised some users who expected a lazier semantics.
 
   Note that `cond` calls `true_fn` and `false_fn` *exactly once* (inside the
   call to `cond`, and not at all during `Session.run()`). `cond`
@@ -2023,7 +2027,7 @@ def cond(pred,
   ```
 
   """
-  if _ENABLE_COND_V2:
+  if ENABLE_COND_V2 and not context.executing_eagerly():
     return cond_v2_impl.cond_v2(pred, true_fn, false_fn, name)
 
   # We needed to make true_fn/false_fn keyword arguments for
