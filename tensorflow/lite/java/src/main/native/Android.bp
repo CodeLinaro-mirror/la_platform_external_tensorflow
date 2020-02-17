@@ -1,0 +1,22 @@
+cc_library_shared {
+    name: "libtensorflowlite_jni",
+    defaults: ["tflite_defaults"],
+    srcs: [
+        "builtin_ops_jni.cc",
+        "exception_jni.cc",
+        "nativeinterpreterwrapper_jni.cc",
+        "tensor_jni.cc",
+        "tensorflow_lite_jni.cc",
+    ],
+    header_libs: [
+        "flatbuffer_headers",
+    ],
+    cflags: [
+        "-Wno-sign-compare",
+        "-Wno-unused-function",
+    ],
+
+    shared_libs: ["libtflite"],
+    product_specific: true,
+    stl: "libc++"
+}

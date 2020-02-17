@@ -1,0 +1,28 @@
+java_library {
+    name: "org.tensorflow.lite.tensorflow-lite",
+    srcs: ["src/main/**/*.java"],
+
+    sdk_version: "current",
+
+    libs: [
+        "android-support-annotations",
+    ],
+    optimize: {
+        enabled: false,
+    },
+
+    //platform_apis: true,
+    installable: true,
+    product_specific: true
+}
+
+prebuilt_etc {
+    name: "org.tensorflow.lite.tensorflow-lite.xml",
+
+    src: "org.tensorflow.lite.tensorflow-lite.xml",
+    sub_dir: "permissions",
+
+    product_specific: true
+}
+
+subdirs = ["src/main/native"]
