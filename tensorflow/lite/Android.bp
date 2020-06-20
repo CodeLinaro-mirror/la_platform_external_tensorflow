@@ -101,4 +101,7 @@ build = [
     "tflite_static.bp",
 ]
 
-subdirs = ["kernels"]
+subdirs = [
+    "kernels",
+    "java"
+]
