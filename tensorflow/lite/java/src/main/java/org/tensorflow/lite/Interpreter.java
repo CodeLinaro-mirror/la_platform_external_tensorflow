@@ -1,4 +1,7 @@
-/* Copyright 2017 The TensorFlow Authors. All Rights Reserved.
+/* Copyright (c) 2020 The Linux Foundation. All rights reserved.
+Not a contribution.
+
+Copyright 2017 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.checkerframework.checker.nullness.qual.NonNull;
+import android.support.annotation.NonNull;
 
 /**
  * Driver class to drive model inference with TensorFlow Lite.
